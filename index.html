@@ -350,30 +350,33 @@
         <div id="preview-pix" class="previews-wrap"></div>
       </div>
     </div>
-    <div class="secao-titulo">📎 Evidências</div>
-    <div class="form-group mb-16">
-      <label>🎬 Vídeo da Ocorrência <strong style="color:var(--danger);">* OBRIGATÓRIO</strong></label>
-      <div class="anexo-area obrigatorio" id="area-video" onclick="document.getElementById('file-video').click()">🎬 Clique para selecionar o vídeo<div class="anexo-label"><strong>Obrigatório</strong> · MP4, MOV, AVI (máx 50MB)</div></div>
-      <input type="file" id="file-video" accept="video/*" style="display:none;" onchange="processarAnexo('file-video','preview-video','video')" />
-      <div id="preview-video" class="previews-wrap"></div>
-    </div>
-    <div class="form-group mb-16">
-      <label>👤 Foto da Face <strong style="color:var(--danger);">* OBRIGATÓRIO</strong></label>
-      <div class="anexo-area obrigatorio" id="area-face" onclick="document.getElementById('file-face').click()">📷 Clique para anexar foto da face<div class="anexo-label"><strong>Obrigatório</strong> · JPG, PNG</div></div>
-      <input type="file" id="file-face" accept="image/*" style="display:none;" onchange="processarAnexo('file-face','preview-face','face')" />
-      <div id="preview-face" class="previews-wrap"></div>
-    </div>
-    <div class="form-group mb-16">
-      <label>🏷️ Foto do Nome / Crachá <span style="color:var(--muted);font-weight:400;">(se loja com porta de acesso)</span></label>
-      <div class="anexo-area" id="area-nome" onclick="document.getElementById('file-nome').click()">📷 Clique para anexar foto do nome<div class="anexo-label">Opcional · JPG, PNG</div></div>
-      <input type="file" id="file-nome" accept="image/*" style="display:none;" onchange="processarAnexo('file-nome','preview-nome','nome')" />
-      <div id="preview-nome" class="previews-wrap"></div>
-    </div>
-    <div class="form-group mb-16">
-      <label>🧾 Foto da Compra <span style="color:var(--muted);font-weight:400;">(se divergência de itens/pagamento)</span></label>
-      <div class="anexo-area" id="area-compra" onclick="document.getElementById('file-compra').click()">📷 Clique para anexar foto da compra<div class="anexo-label">Opcional · JPG, PNG</div></div>
-      <input type="file" id="file-compra" accept="image/*" style="display:none;" onchange="processarAnexo('file-compra','preview-compra','compra')" />
-      <div id="preview-compra" class="previews-wrap"></div>
+    <!-- SEÇÃO DE EVIDÊNCIAS: só aparece quando "Tem Evidências?" = Sim -->
+    <div id="secao-evidencias" style="display:none;">
+      <div class="secao-titulo">📎 Evidências</div>
+      <div class="form-group mb-16">
+        <label>🎬 Vídeo da Ocorrência <strong style="color:var(--danger);">* OBRIGATÓRIO</strong></label>
+        <div class="anexo-area obrigatorio" id="area-video" onclick="document.getElementById('file-video').click()">🎬 Clique para selecionar o vídeo<div class="anexo-label"><strong>Obrigatório</strong> · MP4, MOV, AVI (máx 50MB)</div></div>
+        <input type="file" id="file-video" accept="video/*" style="display:none;" onchange="processarAnexo('file-video','preview-video','video')" />
+        <div id="preview-video" class="previews-wrap"></div>
+      </div>
+      <div class="form-group mb-16">
+        <label>👤 Foto da Face <strong style="color:var(--danger);">* OBRIGATÓRIO</strong></label>
+        <div class="anexo-area obrigatorio" id="area-face" onclick="document.getElementById('file-face').click()">📷 Clique para anexar foto da face<div class="anexo-label"><strong>Obrigatório</strong> · JPG, PNG</div></div>
+        <input type="file" id="file-face" accept="image/*" style="display:none;" onchange="processarAnexo('file-face','preview-face','face')" />
+        <div id="preview-face" class="previews-wrap"></div>
+      </div>
+      <div class="form-group mb-16">
+        <label>🏷️ Foto do Nome / Crachá <span style="color:var(--muted);font-weight:400;">(se loja com porta de acesso)</span></label>
+        <div class="anexo-area" id="area-nome" onclick="document.getElementById('file-nome').click()">📷 Clique para anexar foto do nome<div class="anexo-label">Opcional · JPG, PNG</div></div>
+        <input type="file" id="file-nome" accept="image/*" style="display:none;" onchange="processarAnexo('file-nome','preview-nome','nome')" />
+        <div id="preview-nome" class="previews-wrap"></div>
+      </div>
+      <div class="form-group mb-16">
+        <label>🧾 Foto da Compra <span style="color:var(--muted);font-weight:400;">(se divergência de itens/pagamento)</span></label>
+        <div class="anexo-area" id="area-compra" onclick="document.getElementById('file-compra').click()">📷 Clique para anexar foto da compra<div class="anexo-label">Opcional · JPG, PNG</div></div>
+        <input type="file" id="file-compra" accept="image/*" style="display:none;" onchange="processarAnexo('file-compra','preview-compra','compra')" />
+        <div id="preview-compra" class="previews-wrap"></div>
+      </div>
     </div>
     <input type="hidden" id="reg-id" value="" />
     <div class="flex gap-8" style="justify-content:flex-end;flex-wrap:wrap;">
@@ -665,6 +668,10 @@ function abrirModalOcorrencia(idEditar=null){
       cobrarAtivo=reg.cobrar==='sim';
       atualizarUIcobrar(cobrarAtivo);
       if(cobrarAtivo) document.getElementById('area-pix').style.display='block';
+      // Mostra/esconde campos de incidente e evidências baseado no valor salvo
+      const eraIncidente = reg.incidente === 'Sim';
+      document.getElementById('campos-incidente').style.display = eraIncidente ? 'block' : 'none';
+      document.getElementById('secao-evidencias').style.display = eraIncidente ? 'block' : 'none';
       if(reg.anexos){
         Object.assign(anexosTemp,reg.anexos);
         if(reg.anexos.video) mostrarPreviewSalvo('preview-video',reg.anexos.video,'video');
@@ -684,13 +691,32 @@ function abrirModalOcorrencia(idEditar=null){
     document.getElementById('reg-obs').value='';
     document.getElementById('reg-valor-cobrado').value='';
     document.getElementById('campos-incidente').style.display='none';
+    document.getElementById('secao-evidencias').style.display='none';
     document.getElementById('reg-responsavel').value=usuarioLogado.nome;
   }
   abrirModal('modal-ocorrencia');
 }
 
 function toggleCamposIncidente(){
-  document.getElementById('campos-incidente').style.display=document.getElementById('reg-incidente').value==='Sim'?'block':'none';
+  /*
+    Quando "Houve Incidente?" muda:
+    - Sim → abre campos de categoria/turno E a seção de evidências
+    - Não → esconde tudo e limpa os arquivos já selecionados
+  */
+  const temIncidente = document.getElementById('reg-incidente').value === 'Sim';
+  document.getElementById('campos-incidente').style.display = temIncidente ? 'block' : 'none';
+  document.getElementById('secao-evidencias').style.display = temIncidente ? 'block' : 'none';
+  // Se mudou para Não, limpa os anexos de evidência
+  if(!temIncidente){
+    anexosTemp = {...anexosTemp, video:null, face:null, nome:null, compra:null};
+    ['preview-video','preview-face','preview-nome','preview-compra'].forEach(id=>{
+      document.getElementById(id).innerHTML='';
+    });
+    ['area-video','area-face','area-nome','area-compra'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){el.classList.remove('preenchido'); el.style.borderColor='';}
+    });
+  }
 }
 
 function toggleCobrar(){
@@ -756,8 +782,11 @@ function salvarOcorrencia(continuar){
   const valCob=document.getElementById('reg-valor-cobrado').value;
   const idE=document.getElementById('reg-id').value;
   if(!loja||!resp||!dConf||!dGrav){toast('⚠️ Preencha os campos obrigatórios','warn');return;}
-  if(!anexosTemp.video){toast('⚠️ Vídeo da ocorrência é obrigatório!','err');document.getElementById('area-video').style.borderColor='var(--danger)';return;}
-  if(!anexosTemp.face){toast('⚠️ Foto da face é obrigatória!','err');document.getElementById('area-face').style.borderColor='var(--danger)';return;}
+  // Evidências só são obrigatórias quando "Houve Incidente?" = Sim
+  if(incidente==='Sim'){
+    if(!anexosTemp.video){toast('⚠️ Vídeo da ocorrência é obrigatório!','err');document.getElementById('area-video').style.borderColor='var(--danger)';return;}
+    if(!anexosTemp.face){toast('⚠️ Foto da face é obrigatória!','err');document.getElementById('area-face').style.borderColor='var(--danger)';return;}
+  }
   const dados=db();
   const novoReg={mercado:loja,responsavel:resp,dataConf:dConf,dataGrav:dGrav,status,incidente,categoria,turno,obs,cobrar:cobrarAtivo?'sim':'nao',valorCobrado:valCob||'',aprovacao:'pendente',aprovadoPor:null,dataAprovacao:null,validadoCliente:false,dataValidacaoCliente:null,nomeValidacaoCliente:null,anexos:{...anexosTemp}};
   if(idE){
@@ -780,6 +809,7 @@ function salvarOcorrencia(continuar){
     document.getElementById('reg-obs').value='';
     document.getElementById('reg-valor-cobrado').value='';
     document.getElementById('campos-incidente').style.display='none';
+    document.getElementById('secao-evidencias').style.display='none';
     document.getElementById('area-pix').style.display='none';
     anexosTemp={video:null,face:null,nome:null,compra:null,pix:null};
     cobrarAtivo=false;atualizarUIcobrar(false);
