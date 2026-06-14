@@ -260,6 +260,7 @@
         <button class="tab-btn" onclick="trocarTab('cfg-categorias',this)">Categorias</button>
         <button class="tab-btn" onclick="trocarTab('cfg-turnos',this)">Turnos</button>
         <button class="tab-btn" onclick="trocarTab('cfg-clientes',this)">Clientes Portal</button>
+        <button class="tab-btn" onclick="trocarTab('cfg-lojas-usuario',this)">Lojas por Usuário</button>
       </div>
       <div class="tab-content" id="tab-cfg-usuarios">
         <div class="card">
@@ -303,6 +304,24 @@
           </div>
           <button class="btn btn-primary" onclick="salvarClientePortal()">Salvar Cliente</button>
         </div>
+      </div>
+    </div>
+    <!-- ABA: LOJAS POR USUÁRIO
+         O ADM define quais lojas cada operador pode ver e registrar.
+         ADMs sempre veem todas as lojas independente desta configuração.
+    -->
+    <div class="tab-content" id="tab-cfg-lojas-usuario" style="display:none;">
+      <div class="card">
+        <div class="card-title">Lojas por Usuário</div>
+        <div class="info-box">🏪 Defina quais lojas cada operador pode visualizar e registrar. <b>ADMs sempre veem todas.</b></div>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-group">
+            <label>Operador</label>
+            <select id="cfg-lj-usuario"></select>
+          </div>
+        </div>
+        <div id="cfg-lj-lista-mercados" style="margin-bottom:16px;"></div>
+        <button class="btn btn-primary" onclick="salvarLojasUsuario()">💾 Salvar Lojas</button>
       </div>
     </div>
   </main>
@@ -409,7 +428,8 @@
       <div class="form-grid">
         <div class="form-group"><label>Cliente *</label><input type="text" id="at-cliente" /></div>
         <div class="form-group"><label>Mini Mercado *</label><select id="at-mercado"></select></div>
-        <div class="form-group"><label>Responsável</label><select id="at-responsavel"></select></div>
+        <div class="form-group"><label>Responsável Geral</label><select id="at-responsavel"></select></div>
+        <div class="form-group"><label>Resp. pelas Evidências</label><select id="at-resp-evidencias"></select></div>
         <div class="form-group"><label>Status</label><select id="at-status"><option>Em dia</option><option>Atrasado(Analis-MAIO)</option><option>Pendente</option><option>Cancelado</option></select></div>
         <div class="form-group"><label>Valor (R$/mês)</label><input type="number" id="at-valor" /></div>
         <div class="form-group"><label>Link Planilha</label><input type="url" id="at-link-planilha" /></div>
@@ -643,7 +663,7 @@ function abrirModalOcorrencia(idEditar=null){
   // Reseta arquivos temporários
   anexosTemp={video:null,face:null,nome:null,compra:null,pix:null};
   cobrarAtivo=false;
-  preencherSelect('reg-loja',dados.mercados);
+  preencherSelect('reg-loja', lojasDoUsuario());
   preencherSelect('reg-responsavel',dados.usuarios.map(u=>u.nome));
   preencherSelect('reg-categoria',dados.categorias);
   preencherSelect('reg-turno',dados.turnos);
@@ -987,6 +1007,7 @@ function abrirModalAtivo(id=null){
   const dados=db();
   preencherSelect('at-mercado',dados.mercados);
   preencherSelect('at-responsavel',dados.usuarios.map(u=>u.nome));
+  preencherSelect('at-resp-evidencias',dados.usuarios.map(u=>u.nome));
   if(id){
     const a=dados.ativos.find(x=>x.id===id);
     if(a){
@@ -994,6 +1015,7 @@ function abrirModalAtivo(id=null){
       document.getElementById('at-cliente').value=a.cliente;
       document.getElementById('at-mercado').value=a.mercado;
       document.getElementById('at-responsavel').value=a.responsavel;
+      document.getElementById('at-resp-evidencias').value=a.respEvidencias||'';
       document.getElementById('at-status').value=a.status;
       document.getElementById('at-valor').value=a.valor;
       document.getElementById('at-link-planilha').value=a.linkPlanilha||'';
@@ -1013,6 +1035,7 @@ function abrirModalAtivo(id=null){
     ['at-id','at-cliente','at-valor','at-link-planilha','at-vend-sistema','at-vend-link','at-vend-usuario','at-vend-senha','at-cam-sistema','at-cam-login','at-cam-senha','at-ac-sistema','at-ac-link','at-ac-login','at-ac-senha'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('at-status').value='Em dia';
     document.getElementById('at-responsavel').value=usuarioLogado.nome;
+    document.getElementById('at-resp-evidencias').value=usuarioLogado.nome;
   }
   abrirModal('modal-ativo');
 }
@@ -1022,7 +1045,7 @@ function salvarAtivo(){
   const mercado=document.getElementById('at-mercado').value;
   if(!cliente||!mercado){toast('⚠️ Cliente e Mercado são obrigatórios','warn');return;}
   const dados=db();const idE=document.getElementById('at-id').value;
-  const data={cliente,mercado,responsavel:document.getElementById('at-responsavel').value,status:document.getElementById('at-status').value,valor:parseFloat(document.getElementById('at-valor').value)||0,linkPlanilha:document.getElementById('at-link-planilha').value,vendSistema:document.getElementById('at-vend-sistema').value,vendLink:document.getElementById('at-vend-link').value,vendUsuario:document.getElementById('at-vend-usuario').value,vendSenha:document.getElementById('at-vend-senha').value,camSistema:document.getElementById('at-cam-sistema').value,camLogin:document.getElementById('at-cam-login').value,camSenha:document.getElementById('at-cam-senha').value,acSistema:document.getElementById('at-ac-sistema').value,acLink:document.getElementById('at-ac-link').value,acLogin:document.getElementById('at-ac-login').value,acSenha:document.getElementById('at-ac-senha').value};
+  const data={cliente,mercado,responsavel:document.getElementById('at-responsavel').value,respEvidencias:document.getElementById('at-resp-evidencias').value,status:document.getElementById('at-status').value,valor:parseFloat(document.getElementById('at-valor').value)||0,linkPlanilha:document.getElementById('at-link-planilha').value,vendSistema:document.getElementById('at-vend-sistema').value,vendLink:document.getElementById('at-vend-link').value,vendUsuario:document.getElementById('at-vend-usuario').value,vendSenha:document.getElementById('at-vend-senha').value,camSistema:document.getElementById('at-cam-sistema').value,camLogin:document.getElementById('at-cam-login').value,camSenha:document.getElementById('at-cam-senha').value,acSistema:document.getElementById('at-ac-sistema').value,acLink:document.getElementById('at-ac-link').value,acLogin:document.getElementById('at-ac-login').value,acSenha:document.getElementById('at-ac-senha').value};
   if(idE){const idx=dados.ativos.findIndex(a=>a.id==idE);if(idx>=0)dados.ativos[idx]={...dados.ativos[idx],...data};toast('✅ Ativo atualizado!');}
   else{const nId=dados.ativos.length?Math.max(...dados.ativos.map(a=>a.id))+1:1;dados.ativos.push({id:nId,...data});toast('✅ Ativo cadastrado!');}
   salvarDados('ativos',dados.ativos);fecharModal('modal-ativo');renderizarAtivos();
@@ -1044,7 +1067,12 @@ function renderizarAtivos(){
     html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px;">`;
     ativos.forEach(a=>{
       html+=`<div class="card" style="border-left:3px solid ${a.status==='Em dia'?'var(--accent)':'var(--warn)'};">
-        <div class="flex items-center gap-8 mb-16" style="justify-content:space-between;"><div><div class="fw-700">🏪 ${a.mercado}</div><div class="text-muted text-sm">${a.responsavel} · R$${(a.valor||0).toLocaleString('pt-BR')}/mês</div></div>${badgeStatus(a.status)}</div>
+        <div class="flex items-center gap-8 mb-12" style="justify-content:space-between;"><div><div class="fw-700" style="font-size:15px;">🏪 ${a.mercado}</div></div>${badgeStatus(a.status)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--bg);border-radius:6px;padding:10px;margin-bottom:12px;">
+          <div><div class="text-muted text-sm">💰 Valor Mensal</div><div style="font-weight:700;font-size:16px;color:var(--accent);">R$ ${(a.valor||0).toLocaleString('pt-BR')}</div></div>
+          <div><div class="text-muted text-sm">👤 Resp. Evidências</div><div style="font-weight:600;">${a.respEvidencias||a.responsavel||'-'}</div></div>
+          <div><div class="text-muted text-sm">🏢 Resp. Geral</div><div style="font-weight:600;">${a.responsavel||'-'}</div></div>
+        </div>
         ${a.vendSistema?`<div style="background:var(--bg);border-radius:6px;padding:9px;margin-bottom:8px;"><div class="card-title" style="margin-bottom:6px;">🛒 ${a.vendSistema}</div><div class="text-sm">👤 ${a.vendUsuario||'-'}</div><div class="text-sm flex items-center gap-8" style="margin-top:4px;">🔑 <span id="sv-${a.id}" style="letter-spacing:2px;">••••••••</span><button class="btn-olho" onclick="toggleSenhaCard('sv-${a.id}','${esc(a.vendSenha)}',this)">👁</button></div></div>`:''}
         ${a.camSistema?`<div style="background:var(--bg);border-radius:6px;padding:9px;margin-bottom:8px;"><div class="card-title" style="margin-bottom:6px;">📹 ${a.camSistema}</div><div class="text-sm">👤 ${a.camLogin||'-'}</div><div class="text-sm flex items-center gap-8" style="margin-top:4px;">🔑 <span id="cam-${a.id}" style="letter-spacing:2px;">••••••••</span><button class="btn-olho" onclick="toggleSenhaCard('cam-${a.id}','${esc(a.camSenha)}',this)">👁</button></div></div>`:''}
         ${a.acSistema&&a.acSistema!=='N/A'?`<div style="background:var(--bg);border-radius:6px;padding:9px;margin-bottom:8px;"><div class="card-title" style="margin-bottom:6px;">🚪 ${a.acSistema}</div><div class="text-sm">👤 ${a.acLogin||'-'}</div><div class="text-sm flex items-center gap-8" style="margin-top:4px;">🔑 <span id="ac-${a.id}" style="letter-spacing:2px;">••••••••</span><button class="btn-olho" onclick="toggleSenhaCard('ac-${a.id}','${esc(a.acSenha)}',this)">👁</button></div></div>`:''}
@@ -1066,6 +1094,64 @@ function renderizarConfiguracoes(){
   renderizarLista('lista-categorias',d.categorias,'categorias');
   renderizarLista('lista-turnos',d.turnos,'turnos');
   renderizarClientesPortal(d.clientesPortal||[]);
+  renderizarLojasUsuario();
+}
+
+// Retorna as lojas que o usuário logado pode ver.
+// ADMs veem todas. Operadores veem só as vinculadas a eles.
+function lojasDoUsuario(){
+  const dados=db();
+  if(isAdm()) return dados.mercados;
+  const vinc=dados.lojasUsuario||{};
+  const minhas=vinc[usuarioLogado.nome];
+  // Se ainda não foi configurado, mostra todas (padrão inicial)
+  if(!minhas||minhas.length===0) return dados.mercados;
+  return minhas;
+}
+
+function renderizarLojasUsuario(){
+  const dados=db();
+  const sel=document.getElementById('cfg-lj-usuario');
+  if(!sel) return;
+  // Popula o select com operadores (não ADMs)
+  const operadores=dados.usuarios.filter(u=>u.perfil==='operador');
+  sel.innerHTML=operadores.map(u=>`<option value="${u.nome}">${u.nome}</option>`).join('');
+  sel.onchange=()=>atualizarCheckboxesLojas();
+  atualizarCheckboxesLojas();
+}
+
+function atualizarCheckboxesLojas(){
+  const dados=db();
+  const usuario=document.getElementById('cfg-lj-usuario')?.value;
+  if(!usuario) return;
+  const vinc=dados.lojasUsuario||{};
+  const lojasDoOp=vinc[usuario]||[];
+  const container=document.getElementById('cfg-lj-lista-mercados');
+  if(!container) return;
+  // Cria um checkbox por mercado
+  container.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
+      ${dados.mercados.map(m=>`
+        <label style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;cursor:pointer;">
+          <input type="checkbox" value="${m}" ${lojasDoOp.includes(m)?'checked':''} style="width:auto;accent-color:var(--accent);" />
+          <span style="font-size:13px;">${m}</span>
+        </label>
+      `).join('')}
+    </div>
+    <p class="text-muted text-sm mt-12">Se nenhuma loja for marcada, o operador verá todas.</p>
+  `;
+}
+
+function salvarLojasUsuario(){
+  const usuario=document.getElementById('cfg-lj-usuario')?.value;
+  if(!usuario){toast('⚠️ Selecione um operador','warn');return;}
+  // Coleta os checkboxes marcados
+  const marcados=[...document.querySelectorAll('#cfg-lj-lista-mercados input[type=checkbox]:checked')].map(cb=>cb.value);
+  const dados=db();
+  if(!dados.lojasUsuario) dados.lojasUsuario={};
+  dados.lojasUsuario[usuario]=marcados;
+  salvarDados('lojasUsuario',dados.lojasUsuario);
+  toast(`✅ Lojas de ${usuario} atualizadas!`);
 }
 
 function renderizarListaUsuarios(usuarios){
