@@ -124,6 +124,31 @@
     .secao-titulo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:10px 0 8px;border-bottom:1px solid var(--border);margin-bottom:14px;}
     .info-box{background:rgba(31,111,235,.08);border:1px solid rgba(31,111,235,.3);border-radius:var(--radius);padding:12px;margin-bottom:16px;font-size:13px;}
     .info-box-verde{background:rgba(35,134,54,.08);border:1px solid rgba(35,134,54,.3);}
+    /* Cards de progresso por loja — visão simplificada do operador */
+    .progresso-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+    .progresso-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;border-left:4px solid var(--accent);}
+    .progresso-card.atrasado{border-left-color:var(--warn);}
+    .progresso-card.critico{border-left-color:var(--danger);}
+    .progresso-card .loja-nome{font-size:16px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+    .progresso-card .linha-info{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:6px 0;border-top:1px solid var(--border);}
+    .progresso-card .linha-info:first-of-type{border-top:none;}
+    .progresso-card .dias-numero{font-size:28px;font-weight:700;line-height:1;}
+    /* Cards financeiros por cliente */
+    .fin-cliente-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+    .fin-resumo{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:var(--bg);border-radius:6px;padding:12px;margin-bottom:14px;}
+    .fin-resumo .item{text-align:center;}
+    .fin-resumo .item .valor{font-size:18px;font-weight:700;}
+    .fin-resumo .item .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+    .fin-mes-linha{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+    .fin-mes-linha:last-child{border-bottom:none;}
+    .badge-pago{background:rgba(35,134,54,.2);color:#3fb950;}
+    .badge-naopago{background:rgba(218,54,51,.2);color:#f85149;}
+    .badge-parcial{background:rgba(210,153,34,.2);color:#d29922;}
+    /* Banner de tarefa retroativa no dashboard do operador */
+    .banner-retro{background:rgba(137,87,229,.1);border:1px solid rgba(137,87,229,.35);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;}
+    .banner-retro .titulo{font-weight:700;color:var(--purple);font-size:14px;margin-bottom:8px;}
+    .banner-retro .item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid rgba(137,87,229,.2);font-size:13px;}
+    .banner-retro .item:first-of-type{border-top:none;}
   </style>
 </head>
 <body>
@@ -135,7 +160,7 @@
     <p class="sub">Acesso restrito à equipe interna</p>
     <div class="form-group">
       <label>Usuário</label>
-      <select id="login-usuario"><option value="">Selecione...</option></select>
+      <input type="text" id="login-usuario" placeholder="Digite seu nome de usuário" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-senha').focus()" />
     </div>
     <div class="form-group">
       <label>Senha</label>
@@ -179,17 +204,54 @@
     <div class="tela ativa" id="tela-dashboard">
       <div class="page-header">
         <div><h1>Dashboard</h1><p id="data-hoje"></p></div>
-        <select id="filtro-mes-dashboard" onchange="renderizarDashboard()" style="width:auto;"></select>
+        <!-- Filtro de mês só aparece na visão completa (ADM) -->
+        <select id="filtro-mes-dashboard" onchange="renderizarDashboard()" style="width:auto;display:none;"></select>
       </div>
-      <div id="alertas-dashboard"></div>
-      <div class="cards-grid" id="cards-stats"></div>
-      <div class="grid-2">
-        <div class="card"><div class="card-title">📦 Por Categoria</div><div id="grafico-categorias"></div></div>
-        <div class="card"><div class="card-title">🕐 Por Turno</div><div id="grafico-turnos"></div></div>
+
+      <!--
+        VISÃO DO OPERADOR (simplificada)
+        Mostra só um card por loja com a última gravação analisada
+        e quantos dias estão pendentes desde então.
+        Objetivo: o operador sabe rapidamente onde parou.
+      -->
+      <div id="dashboard-operador" style="display:none;">
+        <!--
+          Banner de tarefas retroativas atribuídas a este operador.
+          Aparece automaticamente quando o ADM cria uma cobrança
+          retroativa designando este operador — sem precisar de
+          nenhuma ação de aceite.
+        -->
+        <div id="banner-retroativas"></div>
+        <div id="progresso-lojas"></div>
       </div>
-      <div class="grid-2">
-        <div class="card"><div class="card-title">👤 Por Funcionário</div><div id="grafico-funcionarios"></div></div>
-        <div class="card"><div class="card-title">🏪 Por Loja</div><div id="grafico-lojas"></div></div>
+
+      <!--
+        VISÃO DO ADM (completa)
+        Ordem: 1) Financeiro  2) Alertas de aprovação
+        3) Progresso por operador  4) Detalhe por loja  5) Gráficos mantidos
+      -->
+      <div id="dashboard-adm" style="display:none;">
+
+        <!-- 1. BLOCO FINANCEIRO -->
+        <div class="secao-titulo">💰 Financeiro</div>
+        <div class="cards-grid" id="cards-financeiro"></div>
+
+        <!-- 2. ALERTAS (aprovação pendente + lojas atrasadas) -->
+        <div id="alertas-dashboard"></div>
+
+        <!-- 3. PROGRESSO POR OPERADOR -->
+        <div class="secao-titulo">👥 Progresso por Operador</div>
+        <div id="progresso-operadores" class="mb-16"></div>
+
+        <!-- 4. DETALHE POR LOJA -->
+        <div class="secao-titulo">🏪 Detalhe por Loja</div>
+        <div id="progresso-lojas-adm" class="mb-16"></div>
+
+        <!-- 5. GRÁFICOS MANTIDOS -->
+        <div class="grid-2">
+          <div class="card"><div class="card-title">👤 Por Funcionário</div><div id="grafico-funcionarios"></div></div>
+          <div class="card"><div class="card-title">🏪 Por Loja</div><div id="grafico-lojas"></div></div>
+        </div>
       </div>
     </div>
 
@@ -245,9 +307,16 @@
     <!-- ATIVOS -->
     <div class="tela" id="tela-ativos">
       <div class="page-header">
-        <div><h1>Ativos & Clientes</h1><p>Sistemas, acessos e dados dos mini mercados</p></div>
+        <div><h1>Ativos & Clientes</h1><p>Sistemas, acessos e financeiro dos mini mercados, agrupados por cliente</p></div>
         <button class="btn btn-primary" onclick="abrirModalAtivo()">+ Novo Ativo</button>
       </div>
+      <!--
+        TELA UNIFICADA: agrupada por cliente (empresa).
+        Para cada cliente, mostramos nesta ordem:
+        1) Resumo financeiro (mensalidade, lojas resumidas, retroativas)
+        2) Cards completos de cada ativo/loja (sistemas, senhas)
+      -->
+      <div class="info-box">💰 A mensalidade é o valor fixo do contrato (soma das lojas do cliente). Cobranças retroativas são avulsas, criadas quando o cliente solicita análise de período anterior.</div>
       <div id="lista-ativos"></div>
     </div>
 
@@ -267,13 +336,7 @@
           <div class="card-title">Usuários do Sistema</div>
           <div class="info-box">ℹ️ <b>ADMs:</b> Dreyfus e Henry têm acesso total. <b>Operadores:</b> Milena e Ryen veem Dashboard, Ocorrências e Histórico.</div>
           <div id="lista-usuarios-cfg"></div>
-          <div class="secao-titulo mt-16">Adicionar / Alterar Usuário</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Nome</label><input type="text" id="cfg-u-nome" placeholder="Nome completo" /></div>
-            <div class="form-group"><label>Senha</label><input type="password" id="cfg-u-senha" placeholder="Mínimo 4 caracteres" /></div>
-            <div class="form-group"><label>Perfil</label><select id="cfg-u-perfil"><option value="operador">Operador</option><option value="adm">ADM</option></select></div>
-          </div>
-          <button class="btn btn-primary" onclick="salvarUsuario()">Salvar Usuário</button>
+          <button class="btn btn-primary mt-16" onclick="abrirModalUsuario()">+ Novo Usuário</button>
         </div>
       </div>
       <div class="tab-content" id="tab-cfg-mercados" style="display:none;">
@@ -432,6 +495,20 @@
         <div class="form-group"><label>Resp. pelas Evidências</label><select id="at-resp-evidencias"></select></div>
         <div class="form-group"><label>Status</label><select id="at-status"><option>Em dia</option><option>Atrasado(Analis-MAIO)</option><option>Pendente</option><option>Cancelado</option></select></div>
         <div class="form-group"><label>Valor (R$/mês)</label><input type="number" id="at-valor" /></div>
+        <div class="form-group">
+          <label>Quem Cobra o Infrator?</label>
+          <!--
+            Campo flexível: ainda não temos planos de cobrança fechados,
+            então deixamos como uma escolha simples por loja.
+            "Nós" = a Smart Monitoring cobra e repassa ao cliente.
+            "Cliente" = o próprio mercado cobra por conta própria.
+          -->
+          <select id="at-quem-cobra">
+            <option value="nao_definido">Ainda não definido</option>
+            <option value="nos">Nós (Smart Monitoring)</option>
+            <option value="cliente">O próprio Cliente</option>
+          </select>
+        </div>
         <div class="form-group"><label>Link Planilha</label><input type="url" id="at-link-planilha" /></div>
       </div>
     </div>
@@ -462,6 +539,115 @@
     <div class="flex gap-8 mt-16" style="justify-content:flex-end;">
       <button class="btn btn-secondary" onclick="fecharModal('modal-ativo')">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarAtivo()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL: ATUALIZAR STATUS DA MENSALIDADE
+     Marca um mês específico de um cliente como Pago/Não Pago/Parcial.
+     A mensalidade é sempre o valor fixo do contrato — esse modal
+     não altera o valor, só registra o status do pagamento.
+     ══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-mensalidade">
+  <div class="modal" style="width:480px;">
+    <div class="modal-header"><h2>💰 Status da Mensalidade</h2><button class="btn-fechar" onclick="fecharModal('modal-mensalidade')">✕</button></div>
+    <p class="text-muted text-sm mb-16" id="mens-info"></p>
+    <div class="form-group mb-16">
+      <label>Status</label>
+      <select id="mens-status">
+        <option value="nao_pago">Não Pago</option>
+        <option value="pago">Pago</option>
+        <option value="parcial">Parcial</option>
+      </select>
+    </div>
+    <div class="form-group mb-16">
+      <label>Observação <span style="color:var(--muted);font-weight:400;">(ex: combinou parcelar para o próximo mês)</span></label>
+      <textarea id="mens-obs" placeholder="Detalhes sobre esse pagamento, se necessário..."></textarea>
+    </div>
+    <input type="hidden" id="mens-cliente" />
+    <input type="hidden" id="mens-chave" />
+    <div class="flex gap-8" style="justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-mensalidade')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarStatusMensalidade()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL: COBRANÇA RETROATIVA
+     Registro avulso para quando o cliente pede análise
+     de um período de gravação anterior ao normal.
+     ══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-retroativa">
+  <div class="modal" style="width:560px;">
+    <div class="modal-header"><h2>🕓 Cobrança Retroativa</h2><button class="btn-fechar" onclick="fecharModal('modal-retroativa')">✕</button></div>
+    <div class="form-group mb-16">
+      <label>Descrição *</label>
+      <input type="text" id="retro-descricao" placeholder="Ex: Análise retroativa — Maio inteiro" />
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Mini Mercado *</label><select id="retro-loja"></select></div>
+      <div class="form-group"><label>Operador Designado *</label><select id="retro-operador"></select></div>
+    </div>
+    <!--
+      Período geral que precisa ser analisado.
+      O operador escolhe livremente as datas dentro desse intervalo
+      ao registrar as Ocorrências normais — o sistema cruza
+      automaticamente pela dataGrav para contar o progresso.
+    -->
+    <div class="form-grid">
+      <div class="form-group"><label>Período — Início *</label><input type="date" id="retro-periodo-inicio" /></div>
+      <div class="form-group"><label>Período — Fim *</label><input type="date" id="retro-periodo-fim" /></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Valor (R$) *</label><input type="number" id="retro-valor" step="0.01" min="0" /></div>
+      <div class="form-group"><label>Data do Pedido</label><input type="date" id="retro-data" /></div>
+    </div>
+    <div class="form-group mb-16">
+      <label>Status do Pagamento</label>
+      <select id="retro-status">
+        <option value="nao_pago">Não Pago</option>
+        <option value="pago">Pago</option>
+      </select>
+    </div>
+    <input type="hidden" id="retro-id" />
+    <input type="hidden" id="retro-cliente" />
+    <div class="flex gap-8" style="justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-retroativa')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarRetroativa()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL: CRIAR/EDITAR USUÁRIO
+     Permite ao ADM alterar nome, senha e perfil de um usuário,
+     além de visualizar a senha atual (campo oculto com botão olho).
+     ══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-usuario">
+  <div class="modal" style="width:440px;">
+    <div class="modal-header"><h2 id="usu-titulo">👤 Novo Usuário</h2><button class="btn-fechar" onclick="fecharModal('modal-usuario')">✕</button></div>
+    <div class="form-group mb-16">
+      <label>Nome</label>
+      <input type="text" id="cfg-u-nome" placeholder="Nome completo" />
+    </div>
+    <div class="form-group mb-16">
+      <label>Senha</label>
+      <div class="senha-wrap">
+        <input type="password" id="cfg-u-senha" placeholder="Mínimo 4 caracteres" />
+        <button class="btn-olho" onclick="toggleSenha('cfg-u-senha',this)" type="button">👁</button>
+      </div>
+    </div>
+    <div class="form-group mb-16">
+      <label>Perfil</label>
+      <select id="cfg-u-perfil"><option value="operador">Operador</option><option value="adm">ADM</option></select>
+    </div>
+    <!-- Guarda o nome original para sabermos qual usuário estamos editando, caso o nome seja alterado -->
+    <input type="hidden" id="cfg-u-nome-original" />
+    <div class="flex gap-8" style="justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-usuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarUsuario()">💾 Salvar</button>
     </div>
   </div>
 </div>
@@ -531,7 +717,12 @@ function db(){
     turnos:         carregarDados('turnos')         || DADOS_INICIAIS.turnos,
     ativos:         carregarDados('ativos')         || DADOS_INICIAIS.ativos,
     registros:      carregarDados('registros')      || DADOS_INICIAIS.registros,
-    clientesPortal: carregarDados('clientesPortal') || DADOS_INICIAIS.clientesPortal
+    clientesPortal: carregarDados('clientesPortal') || DADOS_INICIAIS.clientesPortal,
+    lojasUsuario:   carregarDados('lojasUsuario')   || {},
+    // financeiroClientes: { "Peron Market": { "2026-06": {status, obs} } }
+    financeiroClientes:   carregarDados('financeiroClientes')   || {},
+    // cobrancasRetroativas: lista de objetos {id, cliente, descricao, valor, data, status}
+    cobrancasRetroativas:  carregarDados('cobrancasRetroativas') || []
   };
 }
 
@@ -539,24 +730,37 @@ function db(){
 // 4. LOGIN / LOGOUT
 // ═══════════════════════════════════════════════
 function renderizarLogin(){
-  const dados=db();
-  document.getElementById('login-usuario').innerHTML=
-    '<option value="">Selecione seu usuário...</option>'+
-    dados.usuarios.map(u=>`<option value="${u.nome}">${u.nome}</option>`).join('');
+  // Limpa os campos ao voltar pra tela de login (ex: depois de um logout)
+  document.getElementById('login-usuario').value='';
+  document.getElementById('login-senha').value='';
+  document.getElementById('login-erro').style.display='none';
 }
 
 function fazerLogin(){
-  const nome=document.getElementById('login-usuario').value;
-  const senha=document.getElementById('login-senha').value;
-  const erroEl=document.getElementById('login-erro');
-  const usuario=db().usuarios.find(u=>u.nome===nome&&u.senha===senha);
-  if(!usuario){erroEl.style.display='block';return;}
+  // .trim() remove espaços extras digitados por acidente no início/fim
+  const nomeDigitado = document.getElementById('login-usuario').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const erroEl = document.getElementById('login-erro');
+
+  if(!nomeDigitado || !senha){ erroEl.style.display='block'; return; }
+
+  /*
+    Comparação do nome sem diferenciar maiúsculas/minúsculas
+    (ex: "dreyfus", "Dreyfus" ou "DREYFUS" funcionam igual),
+    mas a senha continua sendo comparada exatamente como digitada.
+  */
+  const usuario = db().usuarios.find(u =>
+    u.nome.toLowerCase() === nomeDigitado.toLowerCase() && u.senha === senha
+  );
+
+  if(!usuario){ erroEl.style.display='block'; return; }
+
   erroEl.style.display='none';
   usuarioLogado=usuario;
   document.getElementById('tela-login').style.display='none';
   document.getElementById('app').style.display='block';
-  document.getElementById('avatar-inicial').textContent=nome[0];
-  document.getElementById('nome-logado').textContent=nome;
+  document.getElementById('avatar-inicial').textContent=usuario.nome[0];
+  document.getElementById('nome-logado').textContent=usuario.nome;
   const cargoEl=document.getElementById('cargo-logado');
   if(isAdm()){
     cargoEl.innerHTML='<span style="color:var(--purple);font-weight:700;">⭐ ADM</span>';
@@ -607,39 +811,88 @@ function navegarPara(nomeTela){
 function renderizarDashboard(){
   const dados=db();
   document.getElementById('data-hoje').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const minhasLojas=lojasDoUsuario();
+
+  if(!isAdm()){
+    // ─── VISÃO SIMPLIFICADA DO OPERADOR ───
+    document.getElementById('dashboard-operador').style.display='block';
+    document.getElementById('dashboard-adm').style.display='none';
+    document.getElementById('filtro-mes-dashboard').style.display='none';
+    renderizarBannerRetroativas();
+    renderizarProgressoLojas(minhasLojas);
+    return;
+  }
+
+  // ─── VISÃO COMPLETA DO ADM ───
+  document.getElementById('dashboard-operador').style.display='none';
+  document.getElementById('dashboard-adm').style.display='block';
+  document.getElementById('filtro-mes-dashboard').style.display='';
+
   const selMes=document.getElementById('filtro-mes-dashboard');
   const hj=new Date(); let ops='<option value="">Todos os meses</option>';
   for(let i=0;i<6;i++){const d=new Date(hj.getFullYear(),hj.getMonth()-i,1);const v=d.toISOString().slice(0,7);ops+=`<option value="${v}"${i===0?' selected':''}>${d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</option>`;}
   selMes.innerHTML=ops;
   const mes=selMes.value;
-  let regs=dados.registros;
+  let regs=dados.registros.filter(r=>minhasLojas.includes(r.mercado));
   if(mes) regs=regs.filter(r=>r.dataConf?.startsWith(mes));
   const hjStr=hoje();
   const alertas=[];
-  dados.mercados.forEach(m=>{
+  minhasLojas.forEach(m=>{
     const ult=dados.registros.filter(r=>r.mercado===m&&r.dataConf).sort((a,b)=>b.dataConf.localeCompare(a.dataConf))[0];
     if(!ult){alertas.push(`<b>${m}</b>: sem registros`);return;}
     const diff=Math.floor((new Date(hjStr)-new Date(ult.dataConf))/86400000);
     if(diff>2) alertas.push(`<b>${m}</b>: último há ${diff} dias`);
   });
   document.getElementById('alertas-dashboard').innerHTML=alertas.length?`<div class="alerta alerta-amarelo">⚠️ <div><b>Atenção:</b> ${alertas.join(' · ')}</div></div>`:'';
-  const pendAprov=dados.registros.filter(r=>r.aprovacao==='pendente').length;
-  const cobrar=regs.filter(r=>r.cobrar==='sim'&&r.aprovacao==='aprovado').length;
-  document.getElementById('cards-stats').innerHTML=`
-    <div class="stat-card" style="border-left:3px solid var(--blue);"><div class="valor" style="color:var(--blue);">${regs.length}</div><div class="label">Total Análises</div></div>
-    <div class="stat-card" style="border-left:3px solid var(--accent);"><div class="valor" style="color:var(--accent);">${regs.filter(r=>r.status==='Concluido').length}</div><div class="label">Concluídas</div></div>
-    <div class="stat-card" style="border-left:3px solid var(--danger);"><div class="valor" style="color:var(--danger);">${regs.filter(r=>r.incidente==='Sim').length}</div><div class="label">Incidentes</div></div>
-    <div class="stat-card" style="border-left:3px solid var(--warn);"><div class="valor" style="color:var(--warn);">${cobrar}</div><div class="label">💰 Cobrar Cliente</div></div>
-    <div class="stat-card" style="border-left:3px solid var(--purple);"><div class="valor" style="color:var(--purple);">${regs.filter(r=>r.status==='Verificar Pendencia').length}</div><div class="label">🔔 Verificar Pend.</div></div>
-    ${isAdm()?`<div class="stat-card" style="border-left:3px solid var(--warn);"><div class="valor" style="color:var(--warn);">${pendAprov}</div><div class="label">⏳ Ag. Aprovação</div></div>`:''}
+  const pendAprov=dados.registros.filter(r=>r.aprovacao==='pendente'&&minhasLojas.includes(r.mercado)).length;
+
+  // ── BLOCO FINANCEIRO ──
+  // Receita mensal total = soma do valor de todos os ativos (contratos)
+  const receitaTotal = dados.ativos.reduce((soma,a)=>soma+(a.valor||0),0);
+
+  // Pendente de cobrança = registros marcados "Cobrar=Sim", ainda sem comprovante PIX,
+  // e SOMENTE das lojas onde "Quem Cobra" = nós (Smart Monitoring).
+  // Isso porque, se o cliente mesmo cobra o infrator, não é responsabilidade nossa.
+  const lojasQueNosCobramos = dados.ativos.filter(a=>a.quemCobra==='nos').map(a=>a.mercado);
+  const pendenteCobranca = dados.registros.filter(r=>
+    r.cobrar==='sim' &&
+    !r.anexos?.pix &&
+    lojasQueNosCobramos.includes(r.mercado)
+  );
+  const totalPendenteCobranca = pendenteCobranca.reduce((soma,r)=>soma+(parseFloat(r.valorCobrado)||0),0);
+
+  // Recebido no mês = soma dos valores cobrados que já têm comprovante PIX, no mês filtrado
+  const recebidosMes = dados.registros.filter(r=>
+    r.cobrar==='sim' && r.anexos?.pix && (!mes || r.dataConf?.startsWith(mes))
+  );
+  const totalRecebidoMes = recebidosMes.reduce((soma,r)=>soma+(parseFloat(r.valorCobrado)||0),0);
+
+  document.getElementById('cards-financeiro').innerHTML=`
+    <div class="stat-card" style="border-left:3px solid var(--accent);">
+      <div class="valor" style="color:var(--accent);font-size:26px;">R$ ${receitaTotal.toLocaleString('pt-BR')}</div>
+      <div class="label">Receita Mensal (Contratos)</div>
+    </div>
+    <div class="stat-card" style="border-left:3px solid var(--warn);">
+      <div class="valor" style="color:var(--warn);font-size:26px;">R$ ${totalPendenteCobranca.toLocaleString('pt-BR')}</div>
+      <div class="label">🔔 Pendente de Cobrança (${pendenteCobranca.length})</div>
+    </div>
+    <div class="stat-card" style="border-left:3px solid var(--blue);">
+      <div class="valor" style="color:var(--blue);font-size:26px;">R$ ${totalRecebidoMes.toLocaleString('pt-BR')}</div>
+      <div class="label">✅ Recebido no Mês (${recebidosMes.length})</div>
+    </div>
+    <div class="stat-card" style="border-left:3px solid var(--purple);">
+      <div class="valor" style="color:var(--purple);">${pendAprov}</div>
+      <div class="label">⏳ Ag. Aprovação</div>
+    </div>
   `;
-  const cCat={};regs.filter(r=>r.incidente==='Sim'&&r.categoria).forEach(r=>{cCat[r.categoria]=(cCat[r.categoria]||0)+1;});
-  const catO=Object.entries(cCat).sort((a,b)=>b[1]-a[1]);const mxC=catO[0]?.[1]||1;
-  document.getElementById('grafico-categorias').innerHTML=catO.length?catO.map(([k,v])=>barra(k,v,mxC,'var(--blue)')).join(''):'<p class="text-muted text-sm">Nenhum incidente</p>';
-  const cTur={};regs.filter(r=>r.incidente==='Sim'&&r.turno).forEach(r=>{cTur[r.turno]=(cTur[r.turno]||0)+1;});
-  const turO=Object.entries(cTur).sort((a,b)=>b[1]-a[1]);const mxT=turO[0]?.[1]||1;
-  const cT={'Manha':'var(--warn)','Tarde':'var(--blue)','Noite':'var(--accent)','Madrugada':'var(--danger)'};
-  document.getElementById('grafico-turnos').innerHTML=turO.length?turO.map(([k,v])=>barra(k,v,mxT,cT[k]||'var(--muted)')).join(''):'<p class="text-muted text-sm">Nenhum incidente</p>';
+
+  // ── PROGRESSO POR OPERADOR ──
+  renderizarProgressoOperadores();
+
+  // ── DETALHE POR LOJA (todas as lojas, com responsável) ──
+  renderizarProgressoLojasAdm(minhasLojas);
+
+  // ── GRÁFICOS MANTIDOS ──
   const cFun={};regs.forEach(r=>{cFun[r.responsavel]=(cFun[r.responsavel]||0)+1;});
   const funO=Object.entries(cFun).sort((a,b)=>b[1]-a[1]);const mxF=funO[0]?.[1]||1;
   document.getElementById('grafico-funcionarios').innerHTML=funO.length?funO.map(([k,v])=>barra(k,v,mxF,'var(--accent)')).join(''):'<p class="text-muted text-sm">Sem dados</p>';
@@ -648,6 +901,202 @@ function renderizarDashboard(){
   document.getElementById('grafico-lojas').innerHTML=lojO.length?lojO.map(([k,v])=>barra(k,v,mxL,'#8b949e')).join(''):'<p class="text-muted text-sm">Sem dados</p>';
   atualizarBadgeAprovacoes();
 }
+
+/*
+  renderizarProgressoOperadores: para cada operador (não-ADM),
+  mostra um card resumido com quantas lojas estão em dia vs atrasadas.
+  Isso dá ao ADM uma visão rápida de "quem está com o trabalho atrasado".
+*/
+function renderizarProgressoOperadores(){
+  const dados = db();
+  const hjStr = hoje();
+  const operadores = dados.usuarios.filter(u=>u.perfil==='operador');
+
+  if(!operadores.length){
+    document.getElementById('progresso-operadores').innerHTML = '<p class="text-muted text-sm">Nenhum operador cadastrado.</p>';
+    return;
+  }
+
+  const cardsHtml = operadores.map(op=>{
+    // Lojas vinculadas a este operador (mesma lógica de lojasDoUsuario, mas para outro usuário)
+    const vinc = dados.lojasUsuario?.[op.nome];
+    const lojasDoOp = (!vinc || vinc.length===0) ? dados.mercados : vinc;
+
+    let emDia=0, atrasadas=0;
+    lojasDoOp.forEach(loja=>{
+      const ultimo = dados.registros
+        .filter(r=>r.mercado===loja && r.dataGrav)
+        .sort((a,b)=>b.dataGrav.localeCompare(a.dataGrav))[0];
+      if(!ultimo){ atrasadas++; return; }
+      const diff = Math.floor((new Date(hjStr)-new Date(ultimo.dataGrav))/86400000);
+      if(diff>2) atrasadas++; else emDia++;
+    });
+
+    const corBorda = atrasadas===0 ? 'var(--accent)' : atrasadas<=lojasDoOp.length/2 ? 'var(--warn)' : 'var(--danger)';
+
+    return `
+      <div class="progresso-card" style="border-left-color:${corBorda};">
+        <div class="loja-nome">👤 ${op.nome}</div>
+        <div class="linha-info"><span class="text-muted">Lojas atribuídas</span><span><b>${lojasDoOp.length}</b></span></div>
+        <div class="linha-info"><span class="text-muted">Em dia</span><span class="badge badge-verde">${emDia}</span></div>
+        <div class="linha-info"><span class="text-muted">Atrasadas</span><span class="badge ${atrasadas>0?'badge-vermelho':'badge-cinza'}">${atrasadas}</span></div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('progresso-operadores').innerHTML = `<div class="progresso-grid">${cardsHtml}</div>`;
+}
+
+/*
+  renderizarProgressoLojasAdm: igual à visão simplificada do operador,
+  mas mostra TODAS as lojas (ou as do filtro) e inclui o nome do responsável.
+*/
+function renderizarProgressoLojasAdm(lojas){
+  const dados = db();
+  const hjStr = hoje();
+
+  const cards = lojas.map(loja=>{
+    const ativo = dados.ativos.find(a=>a.mercado===loja);
+    const responsavel = ativo?.respEvidencias || ativo?.responsavel || '-';
+
+    const ultimo = dados.registros
+      .filter(r=>r.mercado===loja && r.dataGrav)
+      .sort((a,b)=>b.dataGrav.localeCompare(a.dataGrav))[0];
+
+    if(!ultimo){
+      return `
+        <div class="progresso-card critico">
+          <div class="loja-nome">🏪 ${loja}</div>
+          <div class="linha-info"><span class="text-muted">Responsável</span><span><b>${responsavel}</b></span></div>
+          <div class="linha-info"><span class="text-muted">Última análise</span><span><b>Nenhuma ainda</b></span></div>
+        </div>`;
+    }
+
+    const diasPendentes = Math.floor((new Date(hjStr)-new Date(ultimo.dataGrav))/86400000);
+    const dataFormatada = formatarDataBR(ultimo.dataGrav);
+    let classeUrgencia='', corDias='var(--accent)';
+    if(diasPendentes>=1 && diasPendentes<=2){ corDias='var(--accent)'; }
+    if(diasPendentes>=3 && diasPendentes<=5){ classeUrgencia='atrasado'; corDias='var(--warn)'; }
+    if(diasPendentes>5){ classeUrgencia='critico'; corDias='var(--danger)'; }
+
+    return `
+      <div class="progresso-card ${classeUrgencia}">
+        <div class="loja-nome">🏪 ${loja}</div>
+        <div class="linha-info"><span class="text-muted">Responsável</span><span><b>${responsavel}</b></span></div>
+        <div class="linha-info"><span class="text-muted">Última análise</span><span><b>${dataFormatada}</b></span></div>
+        <div class="linha-info"><span class="text-muted">Dias pendentes</span><span class="dias-numero" style="color:${corDias};">${diasPendentes<=0?'0':diasPendentes}</span></div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('progresso-lojas-adm').innerHTML = `<div class="progresso-grid">${cards}</div>`;
+}
+
+/*
+  renderizarBannerRetroativas: mostra ao operador logado as tarefas
+  de cobrança retroativa que o ADM designou para ele.
+  Não exige nenhuma ação de "aceitar" — só aparece informativamente,
+  e o progresso é calculado automaticamente conforme o operador
+  registra Ocorrências normais com dataGrav dentro do período.
+*/
+function renderizarBannerRetroativas(){
+  const dados = db();
+  // Filtra só as tarefas designadas a este operador e ainda não 100% concluídas
+  const minhasTarefas = dados.cobrancasRetroativas.filter(r => r.operador === usuarioLogado.nome);
+
+  if(!minhasTarefas.length){
+    document.getElementById('banner-retroativas').innerHTML = '';
+    return;
+  }
+
+  const itensHtml = minhasTarefas.map(r=>{
+    const diasCobertos = dados.registros.filter(reg=>
+      reg.mercado===r.loja &&
+      reg.dataGrav >= r.periodoInicio &&
+      reg.dataGrav <= r.periodoFim
+    ).length;
+    const totalDiasPeriodo = Math.floor((new Date(r.periodoFim)-new Date(r.periodoInicio))/86400000)+1;
+    const concluido = diasCobertos >= totalDiasPeriodo;
+
+    return `
+      <div class="item">
+        <span>
+          ${concluido?'✅':'🕓'} Analisar <b>${r.loja}</b>: período de ${formatarDataBR(r.periodoInicio)} a ${formatarDataBR(r.periodoFim)}
+          <span class="text-muted"> — ${r.descricao}</span>
+        </span>
+        <span class="badge ${concluido?'badge-pago':'badge-parcial'}">${diasCobertos}/${totalDiasPeriodo} dias</span>
+      </div>`;
+  }).join('');
+
+  document.getElementById('banner-retroativas').innerHTML = `
+    <div class="banner-retro">
+      <div class="titulo">🕓 Tarefas Retroativas Atribuídas a Você</div>
+      ${itensHtml}
+    </div>`;
+}
+
+/*
+  renderizarProgressoLojas: visão simplificada exibida ao operador.
+  Para cada loja vinculada a ele, mostra:
+  - A data da última gravação já analisada
+  - Quantos dias estão pendentes desde essa data
+  Isso responde diretamente "em qual dia eu parei?".
+*/
+function renderizarProgressoLojas(minhasLojas){
+  const dados=db();
+  const hjStr=hoje();
+
+  const cards = minhasLojas.map(loja=>{
+    // Busca o registro mais recente (maior dataGrav) já analisado para esta loja
+    const registrosDaLoja = dados.registros
+      .filter(r=>r.mercado===loja && r.dataGrav)
+      .sort((a,b)=>b.dataGrav.localeCompare(a.dataGrav));
+
+    const ultimo = registrosDaLoja[0];
+
+    if(!ultimo){
+      // Nenhuma análise feita ainda nesta loja
+      return `
+        <div class="progresso-card critico">
+          <div class="loja-nome">🏪 ${loja}</div>
+          <div class="linha-info"><span class="text-muted">Última gravação analisada</span><span><b>Nenhuma ainda</b></span></div>
+          <div class="linha-info"><span class="text-muted">Status</span><span class="badge badge-vermelho">Não iniciado</span></div>
+        </div>`;
+    }
+
+    // Calcula quantos dias se passaram desde a última gravação analisada
+    const diasPendentes = Math.floor((new Date(hjStr) - new Date(ultimo.dataGrav)) / 86400000);
+    const dataFormatada = formatarDataBR(ultimo.dataGrav);
+
+    // Define a cor/urgência do card conforme o atraso
+    let classeUrgencia = '';
+    let corDias = 'var(--accent)';
+    if(diasPendentes >= 1 && diasPendentes <= 2){ classeUrgencia=''; corDias='var(--accent)'; }
+    if(diasPendentes >= 3 && diasPendentes <= 5){ classeUrgencia='atrasado'; corDias='var(--warn)'; }
+    if(diasPendentes > 5){ classeUrgencia='critico'; corDias='var(--danger)'; }
+
+    return `
+      <div class="progresso-card ${classeUrgencia}">
+        <div class="loja-nome">🏪 ${loja}</div>
+        <div class="linha-info">
+          <span class="text-muted">Última análise</span>
+          <span><b>${dataFormatada}</b></span>
+        </div>
+        <div class="linha-info">
+          <span class="text-muted">Dias pendentes</span>
+          <span class="dias-numero" style="color:${corDias};">${diasPendentes <= 0 ? '0' : diasPendentes}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('progresso-lojas').innerHTML = `<div class="progresso-grid">${cards}</div>`;
+}
+
+// Converte "YYYY-MM-DD" para "DD/MM/YYYY" (formato brasileiro)
+function formatarDataBR(dataISO){
+  if(!dataISO) return '-';
+  const [ano,mes,dia] = dataISO.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
 function barra(label,valor,max,cor){const pct=Math.round((valor/max)*100);return `<div class="barra-wrap"><div class="barra-label"><span>${label}</span><span class="text-muted">${valor}</span></div><div class="barra-bg"><div class="barra-fill" style="width:${pct}%;background:${cor};"></div></div></div>`;}
 function atualizarBadgeAprovacoes(){
   const p=db().registros.filter(r=>r.aprovacao==='pendente').length;
@@ -811,8 +1260,14 @@ function salvarOcorrencia(continuar){
   const novoReg={mercado:loja,responsavel:resp,dataConf:dConf,dataGrav:dGrav,status,incidente,categoria,turno,obs,cobrar:cobrarAtivo?'sim':'nao',valorCobrado:valCob||'',aprovacao:'pendente',aprovadoPor:null,dataAprovacao:null,validadoCliente:false,dataValidacaoCliente:null,nomeValidacaoCliente:null,anexos:{...anexosTemp}};
   if(idE){
     const idx=dados.registros.findIndex(r=>r.id==idE);
-    if(idx>=0){const apOrig=dados.registros[idx].aprovacao;dados.registros[idx]={...dados.registros[idx],...novoReg,aprovacao:apOrig};}
-    toast('✅ Registro atualizado!');
+    if(idx>=0){
+      const apOrig=dados.registros[idx].aprovacao;
+      // Se o registro estava reprovado, o reenvio volta para "pendente"
+      // e limpa o motivo de reprovação anterior.
+      const novaAprovacao = apOrig==='reprovado' ? 'pendente' : apOrig;
+      dados.registros[idx]={...dados.registros[idx],...novoReg,aprovacao:novaAprovacao,obsReprovacao:novaAprovacao==='pendente'?null:dados.registros[idx].obsReprovacao};
+      toast(apOrig==='reprovado' ? '✅ Corrigido e reenviado para aprovação!' : '✅ Registro atualizado!');
+    }
   } else {
     const nId=dados.registros.length?Math.max(...dados.registros.map(r=>r.id))+1:1;
     dados.registros.push({id:nId,...novoReg});
@@ -842,9 +1297,32 @@ function salvarOcorrencia(continuar){
 function renderizarOcorrencias(){
   const dados=db();
   const hjStr=hoje();
-  const regsHj=dados.registros.filter(r=>r.dataConf===hjStr).sort((a,b)=>b.id-a.id);
+  const minhasLojas=lojasDoUsuario();
+  const regsHj=dados.registros.filter(r=>r.dataConf===hjStr&&minhasLojas.includes(r.mercado)).sort((a,b)=>b.id-a.id);
   const pend=dados.registros.filter(r=>r.aprovacao==='pendente'&&r.responsavel===usuarioLogado.nome).length;
-  document.getElementById('aviso-pendente-operador').innerHTML=pend>0?`<div class="alerta alerta-amarelo">⏳ Você tem <b>${pend} registro(s)</b> aguardando aprovação do ADM.</div>`:'';
+  // Registros reprovados do próprio usuário precisam de correção e reenvio
+  const reprovados=dados.registros.filter(r=>r.aprovacao==='reprovado'&&r.responsavel===usuarioLogado.nome);
+
+  let avisos='';
+  if(pend>0) avisos+=`<div class="alerta alerta-amarelo">⏳ Você tem <b>${pend} registro(s)</b> aguardando aprovação do ADM.</div>`;
+  if(reprovados.length>0){
+    avisos+=`<div class="alerta alerta-vermelho">
+      ❌ <div>
+        <b>${reprovados.length} registro(s) reprovado(s)</b> — corrija e reenvie para aprovação:
+        <div class="mt-12">
+          ${reprovados.map(r=>`
+            <div class="flex items-center gap-8" style="margin-bottom:6px;flex-wrap:wrap;">
+              <span>🏪 <b>${r.mercado}</b> (${r.dataGrav||'-'})</span>
+              <span class="text-muted text-sm">Motivo: ${r.obsReprovacao||'não informado'}</span>
+              <button class="btn btn-primary" style="padding:3px 10px;font-size:11px;" onclick="abrirModalOcorrencia(${r.id})">✏️ Corrigir e Reenviar</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('aviso-pendente-operador').innerHTML=avisos;
+
   const tbody=document.getElementById('tbody-ocorrencias-hoje');
   if(!regsHj.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px;">Nenhuma ocorrência hoje. Clique em "+ Nova Ocorrência".</td></tr>`;return;}
   tbody.innerHTML=regsHj.map(r=>`
@@ -853,7 +1331,7 @@ function renderizarOcorrencias(){
       <td>${badgeStatus(r.status)}</td>
       <td>${r.incidente==='Sim'?'<span class="badge badge-vermelho">🚨 Sim</span>':'<span class="badge badge-verde">Não</span>'}</td>
       <td>${r.cobrar==='sim'?`<span class="badge badge-laranja">💰${r.valorCobrado?' R$'+r.valorCobrado:''}</span>`:'-'}</td>
-      <td>${badgeAprovacao(r.aprovacao)}</td>
+      <td>${badgeAprovacao(r.aprovacao)}${r.aprovacao==='reprovado'?` <button class="btn btn-primary" style="padding:2px 8px;font-size:11px;" onclick="abrirModalOcorrencia(${r.id})">Reenviar</button>`:''}</td>
       <td style="max-width:160px;font-size:12px;">${r.obs?`<span class="${r.status==='Verificar Pendencia'?'obs-urgente':''}">${r.obs}</span>`:'-'}</td>
       <td><div class="flex gap-8">
         <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="verEvidencias(${r.id})" title="Evidências">📎</button>
@@ -897,7 +1375,8 @@ function excluirRegistro(id){
 // ═══════════════════════════════════════════════
 function renderizarHistorico(){
   const dados=db();
-  preencherSelect('filtro-loja-hist',dados.mercados,'Todas as lojas');
+  const minhasLojas=lojasDoUsuario();
+  preencherSelect('filtro-loja-hist',minhasLojas,'Todas as lojas');
   preencherSelect('filtro-func-hist',dados.usuarios.map(u=>u.nome),'Todos os funcionários');
   const fL=document.getElementById('filtro-loja-hist').value;
   const fF=document.getElementById('filtro-func-hist').value;
@@ -905,6 +1384,7 @@ function renderizarHistorico(){
   const fC=document.getElementById('filtro-cobrar-hist').value;
   const fP=document.getElementById('filtro-periodo-hist').value;
   let regs=dados.registros
+    .filter(r=>minhasLojas.includes(r.mercado)) // Operador só vê suas lojas; ADM vê todas
     .filter(r=>!fL||r.mercado===fL).filter(r=>!fF||r.responsavel===fF)
     .filter(r=>!fI||r.incidente===fI).filter(r=>!fC||r.cobrar===fC)
     .filter(r=>!fP||r.dataConf?.startsWith(fP))
@@ -1018,6 +1498,7 @@ function abrirModalAtivo(id=null){
       document.getElementById('at-resp-evidencias').value=a.respEvidencias||'';
       document.getElementById('at-status').value=a.status;
       document.getElementById('at-valor').value=a.valor;
+      document.getElementById('at-quem-cobra').value=a.quemCobra||'nao_definido';
       document.getElementById('at-link-planilha').value=a.linkPlanilha||'';
       document.getElementById('at-vend-sistema').value=a.vendSistema||'';
       document.getElementById('at-vend-link').value=a.vendLink||'';
@@ -1034,6 +1515,7 @@ function abrirModalAtivo(id=null){
   } else {
     ['at-id','at-cliente','at-valor','at-link-planilha','at-vend-sistema','at-vend-link','at-vend-usuario','at-vend-senha','at-cam-sistema','at-cam-login','at-cam-senha','at-ac-sistema','at-ac-link','at-ac-login','at-ac-senha'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('at-status').value='Em dia';
+    document.getElementById('at-quem-cobra').value='nao_definido';
     document.getElementById('at-responsavel').value=usuarioLogado.nome;
     document.getElementById('at-resp-evidencias').value=usuarioLogado.nome;
   }
@@ -1045,7 +1527,7 @@ function salvarAtivo(){
   const mercado=document.getElementById('at-mercado').value;
   if(!cliente||!mercado){toast('⚠️ Cliente e Mercado são obrigatórios','warn');return;}
   const dados=db();const idE=document.getElementById('at-id').value;
-  const data={cliente,mercado,responsavel:document.getElementById('at-responsavel').value,respEvidencias:document.getElementById('at-resp-evidencias').value,status:document.getElementById('at-status').value,valor:parseFloat(document.getElementById('at-valor').value)||0,linkPlanilha:document.getElementById('at-link-planilha').value,vendSistema:document.getElementById('at-vend-sistema').value,vendLink:document.getElementById('at-vend-link').value,vendUsuario:document.getElementById('at-vend-usuario').value,vendSenha:document.getElementById('at-vend-senha').value,camSistema:document.getElementById('at-cam-sistema').value,camLogin:document.getElementById('at-cam-login').value,camSenha:document.getElementById('at-cam-senha').value,acSistema:document.getElementById('at-ac-sistema').value,acLink:document.getElementById('at-ac-link').value,acLogin:document.getElementById('at-ac-login').value,acSenha:document.getElementById('at-ac-senha').value};
+  const data={cliente,mercado,responsavel:document.getElementById('at-responsavel').value,respEvidencias:document.getElementById('at-resp-evidencias').value,status:document.getElementById('at-status').value,valor:parseFloat(document.getElementById('at-valor').value)||0,quemCobra:document.getElementById('at-quem-cobra').value,linkPlanilha:document.getElementById('at-link-planilha').value,vendSistema:document.getElementById('at-vend-sistema').value,vendLink:document.getElementById('at-vend-link').value,vendUsuario:document.getElementById('at-vend-usuario').value,vendSenha:document.getElementById('at-vend-senha').value,camSistema:document.getElementById('at-cam-sistema').value,camLogin:document.getElementById('at-cam-login').value,camSenha:document.getElementById('at-cam-senha').value,acSistema:document.getElementById('at-ac-sistema').value,acLink:document.getElementById('at-ac-link').value,acLogin:document.getElementById('at-ac-login').value,acSenha:document.getElementById('at-ac-senha').value};
   if(idE){const idx=dados.ativos.findIndex(a=>a.id==idE);if(idx>=0)dados.ativos[idx]={...dados.ativos[idx],...data};toast('✅ Ativo atualizado!');}
   else{const nId=dados.ativos.length?Math.max(...dados.ativos.map(a=>a.id))+1:1;dados.ativos.push({id:nId,...data});toast('✅ Ativo cadastrado!');}
   salvarDados('ativos',dados.ativos);fecharModal('modal-ativo');renderizarAtivos();
@@ -1057,14 +1539,115 @@ function excluirAtivo(id){
   salvarDados('ativos',dados.ativos);renderizarAtivos();toast('🗑 Ativo excluído');
 }
 
+/*
+  renderizarAtivos: tela unificada de Ativos & Clientes.
+  Para cada cliente (empresa), mostra nesta ordem:
+  1) Card financeiro: mensalidade fixa, lista resumida das lojas,
+     histórico de pagamento dos últimos meses e cobranças retroativas
+  2) Cards completos de cada ativo/loja (sistemas, logins, senhas)
+*/
 function renderizarAtivos(){
   const dados=db();
   if(!dados.ativos.length){document.getElementById('lista-ativos').innerHTML='<div class="card" style="text-align:center;color:var(--muted);padding:48px;">Nenhum ativo. Clique em "+ Novo Ativo".</div>';return;}
-  const grupos={};dados.ativos.forEach(a=>{if(!grupos[a.cliente])grupos[a.cliente]=[];grupos[a.cliente].push(a);});
+
+  // Agrupa os ativos por cliente
+  const grupos={};
+  dados.ativos.forEach(a=>{if(!grupos[a.cliente])grupos[a.cliente]=[];grupos[a.cliente].push(a);});
+
+  const mesAtual = hoje().slice(0,7); // "YYYY-MM"
   let html='';
+
   Object.entries(grupos).forEach(([cliente,ativos])=>{
-    html+=`<h3 style="font-size:13px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">🏢 ${cliente}</h3>`;
-    html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px;">`;
+    const valorTotal = ativos.reduce((s,a)=>s+(a.valor||0),0);
+    const lojasResumo = ativos.map(a=>a.mercado); // lista resumida — só nomes
+
+    const historicoCliente = dados.financeiroClientes[cliente] || {};
+    const statusMesAtual = historicoCliente[mesAtual]?.status || 'nao_pago';
+
+    // Últimos 4 meses (incluindo o atual) para o histórico
+    const ultimosMeses=[];
+    const hj=new Date();
+    for(let i=0;i<4;i++){
+      const d=new Date(hj.getFullYear(),hj.getMonth()-i,1);
+      ultimosMeses.push(d.toISOString().slice(0,7));
+    }
+
+    // Cobranças retroativas deste cliente
+    const retroativasCliente = dados.cobrancasRetroativas.filter(r=>r.cliente===cliente);
+    const retroPendentes = retroativasCliente.filter(r=>r.status!=='pago');
+    const totalRetroPendente = retroPendentes.reduce((s,r)=>s+(parseFloat(r.valor)||0),0);
+
+    html += `<h3 style="font-size:14px;color:var(--text);margin-bottom:12px;font-weight:700;">🏢 ${cliente}</h3>`;
+
+    // ── 1) CARD FINANCEIRO ──
+    html += `
+      <div class="fin-cliente-card">
+        <div class="flex items-center gap-8 mb-16" style="justify-content:space-between;">
+          <div class="fw-700">💰 Financeiro</div>
+          ${badgeMensalidade(statusMesAtual)}
+        </div>
+
+        <div class="fin-resumo">
+          <div class="item"><div class="valor" style="color:var(--accent);">R$ ${valorTotal.toLocaleString('pt-BR')}</div><div class="lbl">Mensalidade Fixa</div></div>
+          <div class="item"><div class="valor">${lojasResumo.length}</div><div class="lbl">Lojas</div></div>
+          <div class="item"><div class="valor" style="color:${totalRetroPendente>0?'var(--warn)':'var(--muted)'};">R$ ${totalRetroPendente.toLocaleString('pt-BR')}</div><div class="lbl">Retroativo Pendente</div></div>
+        </div>
+
+        <!-- Lista resumida das lojas deste cliente — só os nomes -->
+        <div class="text-sm text-muted mb-16">🏪 Lojas: ${lojasResumo.join(', ')}</div>
+
+        <div class="card-title">📅 Últimos Meses</div>
+        ${ultimosMeses.map(mes=>{
+          const dadoMes = historicoCliente[mes];
+          const status = dadoMes?.status || 'nao_pago';
+          const [ano,mesNum] = mes.split('-');
+          const nomeMes = new Date(ano,mesNum-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+          return `
+            <div class="fin-mes-linha">
+              <span style="text-transform:capitalize;">${nomeMes}${dadoMes?.obs?` <span class="text-muted text-sm">— ${dadoMes.obs}</span>`:''}</span>
+              <div class="flex gap-8 items-center">
+                ${badgeMensalidade(status)}
+                <button class="btn btn-secondary" style="padding:3px 9px;font-size:11px;" onclick="abrirModalMensalidade('${esc(cliente)}','${mes}')">Atualizar</button>
+              </div>
+            </div>`;
+        }).join('')}
+
+        <div class="card-title mt-16">🕓 Cobranças Retroativas</div>
+        ${retroativasCliente.length ? retroativasCliente.map(r=>{
+          const diasCobertos = dados.registros.filter(reg=>
+            reg.mercado===r.loja &&
+            reg.dataGrav >= r.periodoInicio &&
+            reg.dataGrav <= r.periodoFim
+          ).length;
+          const totalDiasPeriodo = Math.floor((new Date(r.periodoFim)-new Date(r.periodoInicio))/86400000)+1;
+          const progressoCompleto = diasCobertos >= totalDiasPeriodo;
+
+          return `
+          <div class="fin-mes-linha" style="flex-direction:column;align-items:stretch;gap:6px;">
+            <div class="flex items-center" style="justify-content:space-between;">
+              <span><b>${r.descricao}</b> <span class="text-muted text-sm">— 🏪 ${r.loja} · 👤 ${r.operador}</span></span>
+              <div class="flex gap-8 items-center">
+                ${r.status==='pago'?'<span class="badge badge-pago">✓ Pago</span>':'<span class="badge badge-naopago">Não Pago</span>'}
+                <button class="btn btn-secondary" style="padding:3px 9px;font-size:11px;" onclick="abrirModalRetroativa('${esc(cliente)}',${r.id})">✏️</button>
+                <button class="btn btn-danger" style="padding:3px 9px;font-size:11px;" onclick="excluirRetroativa(${r.id})">🗑</button>
+              </div>
+            </div>
+            <div class="text-sm text-muted">
+              📅 Período: ${formatarDataBR(r.periodoInicio)} a ${formatarDataBR(r.periodoFim)} ·
+              💰 R$ ${(parseFloat(r.valor)||0).toLocaleString('pt-BR')} ${r.data?'· Pedido em '+formatarDataBR(r.data):''}
+            </div>
+            <div class="text-sm">
+              <span class="badge ${progressoCompleto?'badge-pago':'badge-parcial'}">
+                ${progressoCompleto?'✓':'◐'} ${diasCobertos}/${totalDiasPeriodo} dias analisados
+              </span>
+            </div>
+          </div>`;
+        }).join('') : '<p class="text-muted text-sm">Nenhuma cobrança retroativa registrada.</p>'}
+        <button class="btn btn-secondary mt-12" style="font-size:12px;" onclick="abrirModalRetroativa('${esc(cliente)}')">+ Nova Cobrança Retroativa</button>
+      </div>`;
+
+    // ── 2) CARDS COMPLETOS DOS ATIVOS (sistemas, senhas) ──
+    html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:28px;">`;
     ativos.forEach(a=>{
       html+=`<div class="card" style="border-left:3px solid ${a.status==='Em dia'?'var(--accent)':'var(--warn)'};">
         <div class="flex items-center gap-8 mb-12" style="justify-content:space-between;"><div><div class="fw-700" style="font-size:15px;">🏪 ${a.mercado}</div></div>${badgeStatus(a.status)}</div>
@@ -1072,6 +1655,7 @@ function renderizarAtivos(){
           <div><div class="text-muted text-sm">💰 Valor Mensal</div><div style="font-weight:700;font-size:16px;color:var(--accent);">R$ ${(a.valor||0).toLocaleString('pt-BR')}</div></div>
           <div><div class="text-muted text-sm">👤 Resp. Evidências</div><div style="font-weight:600;">${a.respEvidencias||a.responsavel||'-'}</div></div>
           <div><div class="text-muted text-sm">🏢 Resp. Geral</div><div style="font-weight:600;">${a.responsavel||'-'}</div></div>
+          <div><div class="text-muted text-sm">📞 Quem Cobra</div><div>${badgeQuemCobra(a.quemCobra)}</div></div>
         </div>
         ${a.vendSistema?`<div style="background:var(--bg);border-radius:6px;padding:9px;margin-bottom:8px;"><div class="card-title" style="margin-bottom:6px;">🛒 ${a.vendSistema}</div><div class="text-sm">👤 ${a.vendUsuario||'-'}</div><div class="text-sm flex items-center gap-8" style="margin-top:4px;">🔑 <span id="sv-${a.id}" style="letter-spacing:2px;">••••••••</span><button class="btn-olho" onclick="toggleSenhaCard('sv-${a.id}','${esc(a.vendSenha)}',this)">👁</button></div></div>`:''}
         ${a.camSistema?`<div style="background:var(--bg);border-radius:6px;padding:9px;margin-bottom:8px;"><div class="card-title" style="margin-bottom:6px;">📹 ${a.camSistema}</div><div class="text-sm">👤 ${a.camLogin||'-'}</div><div class="text-sm flex items-center gap-8" style="margin-top:4px;">🔑 <span id="cam-${a.id}" style="letter-spacing:2px;">••••••••</span><button class="btn-olho" onclick="toggleSenhaCard('cam-${a.id}','${esc(a.camSenha)}',this)">👁</button></div></div>`:''}
@@ -1081,7 +1665,123 @@ function renderizarAtivos(){
     });
     html+='</div>';
   });
+
   document.getElementById('lista-ativos').innerHTML=html;
+}
+
+function badgeMensalidade(status){
+  if(status==='pago')    return '<span class="badge badge-pago">✓ Pago</span>';
+  if(status==='parcial') return '<span class="badge badge-parcial">◐ Parcial</span>';
+  return '<span class="badge badge-naopago">Não Pago</span>';
+}
+
+function abrirModalMensalidade(cliente, mesChave){
+  const dados=db();
+  const dadoMes = dados.financeiroClientes[cliente]?.[mesChave];
+  const [ano,mesNum] = mesChave.split('-');
+  const nomeMes = new Date(ano,mesNum-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  document.getElementById('mens-info').innerHTML = `Cliente: <b>${cliente}</b> · Mês: <b style="text-transform:capitalize;">${nomeMes}</b>`;
+  document.getElementById('mens-status').value = dadoMes?.status || 'nao_pago';
+  document.getElementById('mens-obs').value = dadoMes?.obs || '';
+  document.getElementById('mens-cliente').value = cliente;
+  document.getElementById('mens-chave').value = mesChave;
+  abrirModal('modal-mensalidade');
+}
+
+function salvarStatusMensalidade(){
+  const cliente = document.getElementById('mens-cliente').value;
+  const mesChave = document.getElementById('mens-chave').value;
+  const status = document.getElementById('mens-status').value;
+  const obs = document.getElementById('mens-obs').value.trim();
+
+  const dados=db();
+  if(!dados.financeiroClientes[cliente]) dados.financeiroClientes[cliente]={};
+  dados.financeiroClientes[cliente][mesChave] = { status, obs };
+
+  salvarDados('financeiroClientes', dados.financeiroClientes);
+  fecharModal('modal-mensalidade');
+  renderizarFinanceiroClientes();
+  toast('✅ Status da mensalidade atualizado!');
+}
+
+function abrirModalRetroativa(cliente, id=null){
+  const dados=db();
+  document.getElementById('retro-cliente').value = cliente;
+
+  // Só mostra as lojas que pertencem a este cliente
+  const lojasDoCliente = dados.ativos.filter(a=>a.cliente===cliente).map(a=>a.mercado);
+  preencherSelect('retro-loja', lojasDoCliente);
+
+  // Só operadores podem ser designados (ADM não precisa, já vê tudo)
+  preencherSelect('retro-operador', dados.usuarios.filter(u=>u.perfil==='operador').map(u=>u.nome));
+
+  if(id){
+    const r = dados.cobrancasRetroativas.find(x=>x.id===id);
+    if(r){
+      document.getElementById('retro-id').value = r.id;
+      document.getElementById('retro-descricao').value = r.descricao;
+      document.getElementById('retro-loja').value = r.loja||'';
+      document.getElementById('retro-operador').value = r.operador||'';
+      document.getElementById('retro-periodo-inicio').value = r.periodoInicio||'';
+      document.getElementById('retro-periodo-fim').value = r.periodoFim||'';
+      document.getElementById('retro-valor').value = r.valor;
+      document.getElementById('retro-data').value = r.data||'';
+      document.getElementById('retro-status').value = r.status;
+    }
+  } else {
+    document.getElementById('retro-id').value = '';
+    document.getElementById('retro-descricao').value = '';
+    document.getElementById('retro-periodo-inicio').value = '';
+    document.getElementById('retro-periodo-fim').value = '';
+    document.getElementById('retro-valor').value = '';
+    document.getElementById('retro-data').value = hoje();
+    document.getElementById('retro-status').value = 'nao_pago';
+  }
+  abrirModal('modal-retroativa');
+}
+
+function salvarRetroativa(){
+  const cliente = document.getElementById('retro-cliente').value;
+  const descricao = document.getElementById('retro-descricao').value.trim();
+  const loja = document.getElementById('retro-loja').value;
+  const operador = document.getElementById('retro-operador').value;
+  const periodoInicio = document.getElementById('retro-periodo-inicio').value;
+  const periodoFim = document.getElementById('retro-periodo-fim').value;
+  const valor = document.getElementById('retro-valor').value;
+  const data = document.getElementById('retro-data').value;
+  const status = document.getElementById('retro-status').value;
+  const idE = document.getElementById('retro-id').value;
+
+  if(!descricao || !valor || !loja || !operador || !periodoInicio || !periodoFim){
+    toast('⚠️ Preencha todos os campos obrigatórios','warn'); return;
+  }
+  if(periodoFim < periodoInicio){
+    toast('⚠️ A data fim não pode ser antes da data início','warn'); return;
+  }
+
+  const dados=db();
+  if(idE){
+    const idx = dados.cobrancasRetroativas.findIndex(r=>r.id==idE);
+    if(idx>=0) dados.cobrancasRetroativas[idx] = { ...dados.cobrancasRetroativas[idx], cliente, descricao, loja, operador, periodoInicio, periodoFim, valor, data, status };
+    toast('✅ Cobrança retroativa atualizada!');
+  } else {
+    const nId = dados.cobrancasRetroativas.length ? Math.max(...dados.cobrancasRetroativas.map(r=>r.id))+1 : 1;
+    dados.cobrancasRetroativas.push({ id:nId, cliente, descricao, loja, operador, periodoInicio, periodoFim, valor, data, status });
+    toast('✅ Tarefa retroativa criada! Vai aparecer no painel do operador.');
+  }
+
+  salvarDados('cobrancasRetroativas', dados.cobrancasRetroativas);
+  fecharModal('modal-retroativa');
+  renderizarFinanceiroClientes();
+}
+
+function excluirRetroativa(id){
+  if(!confirm('Excluir esta cobrança retroativa?')) return;
+  const dados=db();
+  dados.cobrancasRetroativas = dados.cobrancasRetroativas.filter(r=>r.id!==id);
+  salvarDados('cobrancasRetroativas', dados.cobrancasRetroativas);
+  renderizarFinanceiroClientes();
+  toast('🗑 Cobrança retroativa excluída');
 }
 
 // ═══════════════════════════════════════════════
@@ -1158,22 +1858,73 @@ function renderizarListaUsuarios(usuarios){
   const el=document.getElementById('lista-usuarios-cfg');if(!el)return;
   el.innerHTML=usuarios.map((u,i)=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
-      <div><b>${u.nome}</b><span class="badge ${u.perfil==='adm'?'badge-roxo':'badge-azul'}" style="margin-left:8px;">${u.perfil==='adm'?'⭐ ADM':'Operador'}</span></div>
-      <button class="btn btn-danger" style="font-size:11px;padding:3px 8px;" onclick="removerUsuario(${i})">Remover</button>
+      <div>
+        <b>${u.nome}</b>
+        <span class="badge ${u.perfil==='adm'?'badge-roxo':'badge-azul'}" style="margin-left:8px;">${u.perfil==='adm'?'⭐ ADM':'Operador'}</span>
+        <span class="text-muted text-sm flex items-center gap-8" style="display:inline-flex;margin-left:10px;">
+          Senha: <span id="senha-usu-${i}" style="letter-spacing:2px;">••••••••</span>
+          <button class="btn-olho" onclick="toggleSenhaCard('senha-usu-${i}','${esc(u.senha)}',this)">👁</button>
+        </span>
+      </div>
+      <div class="flex gap-8">
+        <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px;" onclick="abrirModalUsuario(${i})">✏️ Editar</button>
+        <button class="btn btn-danger" style="font-size:11px;padding:3px 8px;" onclick="removerUsuario(${i})">Remover</button>
+      </div>
     </div>`).join('')||'<p class="text-muted text-sm">Nenhum usuário.</p>';
+}
+
+/*
+  abrirModalUsuario: abre o modal para criar um novo usuário (sem índice)
+  ou editar um usuário existente (passando o índice na lista).
+  Usamos índice em vez de nome porque o nome pode ser alterado dentro do modal.
+*/
+function abrirModalUsuario(idx=null){
+  if(idx!==null){
+    const u = db().usuarios[idx];
+    document.getElementById('usu-titulo').textContent = '✏️ Editar Usuário';
+    document.getElementById('cfg-u-nome').value = u.nome;
+    document.getElementById('cfg-u-senha').value = u.senha;
+    document.getElementById('cfg-u-perfil').value = u.perfil;
+    document.getElementById('cfg-u-nome-original').value = u.nome;
+  } else {
+    document.getElementById('usu-titulo').textContent = '👤 Novo Usuário';
+    document.getElementById('cfg-u-nome').value = '';
+    document.getElementById('cfg-u-senha').value = '';
+    document.getElementById('cfg-u-perfil').value = 'operador';
+    document.getElementById('cfg-u-nome-original').value = '';
+  }
+  abrirModal('modal-usuario');
 }
 
 function salvarUsuario(){
   const nome=document.getElementById('cfg-u-nome').value.trim();
   const senha=document.getElementById('cfg-u-senha').value;
   const perfil=document.getElementById('cfg-u-perfil').value;
+  const nomeOriginal=document.getElementById('cfg-u-nome-original').value;
+
   if(!nome||!senha||senha.length<4){toast('⚠️ Nome e senha (mín.4 chars) obrigatórios','warn');return;}
+
   const dados=db();
-  const idx=dados.usuarios.findIndex(u=>u.nome===nome);
-  if(idx>=0){dados.usuarios[idx]={nome,senha,perfil};toast('✅ Usuário atualizado!');}
-  else{dados.usuarios.push({nome,senha,perfil});toast('✅ Usuário adicionado!');}
-  salvarDados('usuarios',dados.usuarios);renderizarListaUsuarios(dados.usuarios);
-  document.getElementById('cfg-u-nome').value='';document.getElementById('cfg-u-senha').value='';
+
+  if(nomeOriginal){
+    // EDIÇÃO: localiza o usuário pelo nome ORIGINAL (antes de uma possível alteração de nome)
+    const idx=dados.usuarios.findIndex(u=>u.nome===nomeOriginal);
+    if(idx>=0){
+      dados.usuarios[idx]={nome,senha,perfil};
+      toast('✅ Usuário atualizado!');
+    }
+  } else {
+    // CRIAÇÃO: impede nomes duplicados
+    if(dados.usuarios.some(u=>u.nome.toLowerCase()===nome.toLowerCase())){
+      toast('⚠️ Já existe um usuário com esse nome','warn'); return;
+    }
+    dados.usuarios.push({nome,senha,perfil});
+    toast('✅ Usuário adicionado!');
+  }
+
+  salvarDados('usuarios',dados.usuarios);
+  renderizarListaUsuarios(dados.usuarios);
+  fecharModal('modal-usuario');
 }
 
 function removerUsuario(idx){
@@ -1268,6 +2019,13 @@ function badgeAprovacao(ap){
   return '<span class="badge badge-amarelo">⏳ Pendente</span>';
 }
 
+// Badge para o campo "Quem Cobra o Infrator?" do Ativo
+function badgeQuemCobra(qc){
+  if(qc==='nos')      return '<span class="badge badge-azul">📞 Nós cobramos</span>';
+  if(qc==='cliente')  return '<span class="badge badge-cinza">👤 Cliente cobra</span>';
+  return '<span class="badge badge-cinza">— Não definido</span>';
+}
+
 function preencherSelect(id,opcoes,placeholder=null){
   const sel=document.getElementById(id);if(!sel)return;
   const val=sel.value;
@@ -1303,6 +2061,9 @@ function inicializarApp(){
   if(!carregarDados('ativos'))         salvarDados('ativos',d.ativos);
   if(!carregarDados('registros'))      salvarDados('registros',d.registros);
   if(!carregarDados('clientesPortal')) salvarDados('clientesPortal',d.clientesPortal);
+  if(!carregarDados('lojasUsuario'))   salvarDados('lojasUsuario',{});
+  if(!carregarDados('financeiroClientes'))  salvarDados('financeiroClientes',{});
+  if(!carregarDados('cobrancasRetroativas')) salvarDados('cobrancasRetroativas',[]);
   navegarPara('dashboard');
 }
 
